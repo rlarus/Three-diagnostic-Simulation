@@ -304,8 +304,9 @@ wrap_simulation <- function(case=c("nominal","power"), equal_hypothesis, N, prob
     result <- cbind(result, result_temp)
   }
   
-  for(i in 1:nrow(result)) 
-    set_list[i,26:(26+length(N)-1)] <- output[output$PI == result$pi[i] & output$PPV1 == result$ppv1[i] & output$PPV2 == result$ppv2[i] & output$XI1 == result$xi1[i] & output$XI2 == result$xi2[i] & output$ETA1 == result$eta1[i] & output$ETA2 == result$eta2[i],][,case]
-  return(set_list)
+  for(i in 1:nrow(result)) {
+    result[i,26:(26+length(N)-1)] <- output[output$PI == result$pi[i] & output$PPV1 == result$ppv1[i] & output$PPV2 == result$ppv2[i] & output$XI1 == result$xi1[i] & output$XI2 == result$xi2[i] & output$ETA1 == result$eta1[i] & output$ETA2 == result$eta2[i],][,case]
+  }
+  return(result)
 }
 
