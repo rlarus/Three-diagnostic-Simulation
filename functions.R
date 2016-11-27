@@ -2,6 +2,22 @@
 #######################################################################
 ## Test function
 #######################################################################
+
+npv_test <- function(n) {
+  n0<-n[1:9]
+  n1<-n[10:18]
+  a1 <- sum(n1[c(3,6,9)])
+  a2 <- sum(n1[c(7,8,9)])
+  b1 <- sum(n0[c(6,9)])
+  b2 <- sum(n0[c(8,9)])
+  
+  l <- a1*b2-a2*b1
+  S <- a1*(b2^2)-2*n1[9]*b1*b2+a2*(b1^2)+b1*(a2^2)-2*n0[9]*a1*a2+b2*(a1^2)
+  chisq <- l^2/S
+  p.value <- pchisq(chisq, df=1, lower.tail=F)
+  return(list(chisq.statistics=chisq, p.value=p.value))
+}
+
 ppv_equal_test <- function(n) {
   n0<-n[1:9]
   n1<-n[10:18]
@@ -39,20 +55,34 @@ ppv_nonequal_test <- function(n) {
 ## Sample from Multinomial distribution
 #######################################################################
 
-simul_data_generate <- function(num, N, p1, p0, seed) {
-  
-  ppv1 <- round(sum(p1[c(1,2,3)]) / sum(p1[c(1,2,3,4,5,6)], p0[c(5,6)]), 4)
-  ppv2 <- round(sum(p1[c(1,4,7)]) / sum(p1[c(1,2,4,5,7,8)], p0[c(5,8)]), 4)
-  xi1 <- round(sum(p1[1:6])/sum(p1), 4)
-  xi2 <- round(sum(p1[c(1,4,7,2,5,8)])/sum(p1), 4)
-  eta1 <- round(sum(p0[c(8,9)])/sum(p0[c(5,6,8,9)]), 4)
-  eta2 <- round(sum(p0[c(6,9)])/sum(p0[c(5,6,8,9)]), 4)
-  
-  ## rmultinom ��?? generate
-  #set.seed(seed)
-  data <- rmultinom(num, N, c(p0,p1))
-  return(list(c(ppv1,ppv2,xi1,xi2,eta1,eta2), data))  
+simul_data_generate <- function(num, N, p1, p0, seed, IsPPV=TRUE) {
+  if(IsPPV == TRUE){
+    ppv1 <- round(sum(p1[c(1,2,3)]) / sum(p1[c(1,2,3,4,5,6)], p0[c(5,6)]), 4)
+    ppv2 <- round(sum(p1[c(1,4,7)]) / sum(p1[c(1,2,4,5,7,8)], p0[c(5,8)]), 4)
+    xi1 <- round(sum(p1[1:6])/sum(p1), 4)
+    xi2 <- round(sum(p1[c(1,4,7,2,5,8)])/sum(p1), 4)
+    eta1 <- round(sum(p0[c(8,9)])/sum(p0[c(5,6,8,9)]), 4)
+    eta2 <- round(sum(p0[c(6,9)])/sum(p0[c(5,6,8,9)]), 4)
+    set.seed(seed)
+    data <- rmultinom(num, N, c(p0,p1))
+    listResult <- list(c(ppv1,ppv2,xi1,xi2,eta1,eta2), data)
+  } else {
+    npv1 <- round(sum(p0[c(8,9)]) / sum(p1[c(7,8,9)], p0[c(8,9)]), 4)
+    npv2 <- round(sum(p0[c(6,9)]) / sum(p1[c(3,6,9)], p0[c(6,9)]), 4)
+    xi1 <- round(sum(p1[1:6])/sum(p1), 4)
+    xi2 <- round(sum(p1[c(1,4,7,2,5,8)])/sum(p1), 4)
+    eta1 <- round(sum(p0[c(8,9)])/sum(p0[c(5,6,8,9)]), 4)
+    eta2 <- round(sum(p0[c(6,9)])/sum(p0[c(5,6,8,9)]), 4)
+    
+    ## rmultinom ��?? generate
+    #set.seed(seed)
+    data <- rmultinom(num, N, c(p0,p1))
+    listResult <- list(c(npv1,npv2,xi1,xi2,eta1,eta2), data)
+  }
+  return(listResult)
 }
+
+
 
 #######################################################################
 ## Probability Generation
@@ -91,10 +121,9 @@ combn_rep <- function(n,r, const.ind=0, const.val=0, const=c("greater","less","b
   return(out)}
 # denominator and nominator for fractions
 denom <- function(x) as.numeric(strsplit(attributes(x)$fracs, "/")[[1]][2])
-nom <-   function(x) as.numeric(strsplit(attributes(x)$fracs, "/")[[1]][1])
+nom <- function(x) as.numeric(strsplit(attributes(x)$fracs, "/")[[1]][1])
 
-
-prob_generate <- function(pi, xi1, xi2, ppv1, ppv2, equal_hypothesis, max.try=1000) {
+ppv_prob_generate <- function(pi, xi1, xi2, ppv1, ppv2, equal_hypothesis, max.try=1000) {
   max.denom <- 10000
   d.e <- 100
   
@@ -216,7 +245,8 @@ prob_generate <- function(pi, xi1, xi2, ppv1, ppv2, equal_hypothesis, max.try=10
   }
   return(list(data.frame(p1=p1, p0=p0),c(x7,x8), c(eta1, eta2)))
 }
-wrap_prob_generate <- function(PI, XI, PPV, equal_hypothesis){
+
+wrap_ppv_prob_generate <- function(PI, XI, PPV, equal_hypothesis){
   ## equal sens, spec
   
   prob_set <- data.frame(pi=numeric(), xi1=numeric(), xi2=numeric(), eta1=numeric(), eta2=numeric(), ppv1=numeric(), ppv2=numeric(), p11=numeric(), p12=numeric(), p13=numeric(), p14=numeric(), p15=numeric(), p16=numeric(), p17=numeric(), p18=numeric(), p19=numeric(), p01=numeric(), p02=numeric(), p03=numeric(), p04=numeric(), p05=numeric(), p06=numeric(), p07=numeric(), p08=numeric(), p09=numeric())
@@ -224,7 +254,7 @@ wrap_prob_generate <- function(PI, XI, PPV, equal_hypothesis){
     for(j in 1:nrow(XI)) {
       for(k in 1:nrow(PPV)){
         
-        prob <- prob_generate(PI[i], XI[j,1], XI[j,2], PPV[k,1], PPV[k,2], equal_hypothesis)
+        prob <- ppv_prob_generate(PI[i], XI[j,1], XI[j,2], PPV[k,1], PPV[k,2], equal_hypothesis)
         
         eta1 <- prob[[3]][1]
         eta2 <- prob[[3]][2]
@@ -239,10 +269,164 @@ wrap_prob_generate <- function(PI, XI, PPV, equal_hypothesis){
   return(prob_set)
 }
 
+npv_prob_generate <- function(pi, xi1, xi2, npv1, npv2, max.try=1000) {
+  max.denom <- 10000
+  d.e <- 100
+  
+  print(sprintf('%f | %f | %f | %f | %f', pi, xi1, xi2, npv1, npv2))
+  #####################################################################################
+  ## specify p0
+  #####################################################################################
+  ## x3=p08+p09
+  ## x4=p06+p09
+  t <- 1
+  while(t < 100){
+    
+    eta1 <- (npv1*(1-xi1)*pi)/((1-pi)*(1-npv1))
+    eta2 <- (npv2*(1-xi2)*pi)/((1-pi)*(1-npv2))
+    
+    x3 <- (1-pi)*eta1
+    x4 <- (1-pi)*eta2
+    
+    lwr <- max(0, -(1-pi)*(1-eta1-eta2))
+    upp <- min(x3,x4)
+    
+    i<-1
+    
+    if(eta1 < 1 & eta2 < 1){
+    while(i < max.try) {
+      p0 <- rep(0,9)
+      
+      ## p0 setting
+      # p01=p02=p03=0p4=p07=0
+      p0[9] <- runif(1, lwr, upp)
+      p0[5] <- p0[9] + (1-pi)*(1-eta1-eta2)
+      p0[8] <- -p0[9]+x3
+      p0[6] <- -p0[9]+x4
+      
+      if(all(p0[c(5,6,8,9)]>0)) break;
+      i<-i+1
+      if(i==max.try) {p0<-rep(NA,9)}
+    }
+    } else {
+      p0<-rep(NA,9)
+    }
+    
+    if(!any(is.na(p0))){ 
+    #####################################################################################
+    ## specify p1
+    #####################################################################################
+    ## x1=p11+p12+p13+p14+p15+p16
+    ## x2=p11+p12+p14+p15+p17+p18
+    ## x5=p11+p12+p13
+    ## x6=p11+p14+p17
+    ## x7=p14+p15+p16
+    ## x8=p12+p15+p18
+    x1 <- pi*xi1
+    x2 <- pi*xi2
+    x5 <- (1-xi1)*pi
+    x6 <- (1-xi2)*pi
+    
+    j<-1
+    
+      while(j < max.try) {
+        p1 <- rep(0,9)
+        
+        ## p11, p12, p13
+        frac_x5 <- fractions(x5, max.denominator=max.denom)
+        nom_x5 <- nom(frac_x5)
+        denom_x5 <- denom(frac_x5)
+        
+        if(nom_x5<100) {
+          nom_x5 <-nom_x5*d.e
+          denom_x5 <-denom_x5*d.e
+        }
+        if(nom_x5 > 1000000000) {
+          nom_x5 <- round(nom_x5/d.e)
+          denom_x5 <- denom_x5/d.e
+        }
+        
+        p1[c(7,8,9)] <- combn_rep(nom_x5, 3)/denom_x5
+        
+        # p13, p16
+        p136 <- x6-p1[9]
+        frac_p136 <- fractions(p136, max.denominator=max.denom)
+        nom_p136 <- nom(frac_p136)
+        denom_p136 <- denom(frac_p136)
+        if(nom_p136<100) {
+          nom_p136 <-nom_p136*d.e
+          denom_p136 <-denom_p136*d.e
+        }
+        if(nom_p136 > 1000000000) {
+          nom_p136 <- round(nom_p136/d.e)
+          denom_p136 <- denom_p136/d.e
+        }
+        
+        p1[c(3,6)] <- combn_rep(nom_p136, 2)/denom_p136
+        
+        p1245 <- x1-sum(p1[c(3,6)])
+        frac_p1245 <- fractions(p1245, max.denominator=max.denom)
+        nom_p1245 <- nom(frac_p1245)
+        denom_p1245 <- denom(frac_p1245)
+        if(nom_p1245<100) {
+          nom_p1245 <-nom_p1245*d.e
+          denom_p1245 <-denom_p1245*d.e
+        }
+        if(nom_p1245 > 1000000000) {
+          nom_p1245 <- round(nom_p1245/d.e)
+          denom_p1245 <- denom_p1245/d.e
+        }
+        
+        p1[c(1,2,4,5)] <- combn_rep(nom_p1245, 4)/denom_p1245
+        
+        if(all(p1>0)) break;
+        j<-j+1
+        if(j==max.try) {p1<-rep(NA,9)}
+      }
+      
+    } else {
+      p1 <- rep(NA ,9)
+    }
+    
+    if(!any(is.na(c(p0,p1)))) break;
+    t <- t+1
+    if(t==100) {
+      p0<-rep(NA,9)
+      p1 <- rep(NA,9)
+    }
+  }
+  return(list(data.frame(p1=p1, p0=p0), c(eta1, eta2)))
+}
+
+wrap_npv_prob_generate <- function(PI, XI, NPV){#, equal_hypothesis){
+  ## equal sens, spec
+  
+  prob_set <- data.frame(pi=numeric(), xi1=numeric(), xi2=numeric(), eta1=numeric(), eta2=numeric(), npv1=numeric(), npv2=numeric(), p11=numeric(), p12=numeric(), p13=numeric(), p14=numeric(), p15=numeric(), p16=numeric(), p17=numeric(), p18=numeric(), p19=numeric(), p01=numeric(), p02=numeric(), p03=numeric(), p04=numeric(), p05=numeric(), p06=numeric(), p07=numeric(), p08=numeric(), p09=numeric())
+  for(i in 1:length(PI)) {
+    for(j in 1:nrow(XI)) {
+      for(k in 1:nrow(NPV)){
+        
+        prob <- npv_prob_generate(PI[i], XI[j,1], XI[j,2], NPV[k,1], NPV[k,2])
+        
+        eta1 <- prob[[2]][1]
+        eta2 <- prob[[2]][2]
+        
+        prob_set_temp <- data.frame(pi=PI[i], xi1=XI[j,1], xi2=XI[j,2], eta1=eta1, eta2=eta2, npv1=NPV[k,1],npv2=NPV[k,2], t(data.frame(c(prob[[1]][,1], prob[[1]][,2]))), row.names=NULL)
+        colnames(prob_set_temp)[8:25] <- c(paste0("p1",1:9), paste0("p0",1:9))
+        prob_set <- rbind(prob_set, prob_set_temp)
+        
+      }
+    }
+  }
+  return(prob_set)
+}
+
+
+
 #######################################################################
 ## Main simulation functions
 #######################################################################
-simulation <- function(equal_hypothesis, N, prob, n_data=10000, seed=881128) {
+ppv_simulation <- function(equal_hypothesis, N, prob, n_data=10000, seed=881128) {
   p1 <- as.numeric(prob[grep("p1", colnames(prob))])
   p0 <- as.numeric(prob[grep("p0", colnames(prob))])
   ## p1,p0 generate
@@ -283,14 +467,14 @@ simulation <- function(equal_hypothesis, N, prob, n_data=10000, seed=881128) {
   rownames(result) <- 1
   return(result)
 }
-wrap_simulation <- function(case=c("nominal","power"), equal_hypothesis, N, prob) {
+wrap_ppv_simulation <- function(case=c("nominal","power"), equal_hypothesis, N, prob) {
   
   for(i in 1:nrow(prob)){
     for(j in 1:length(N)){
       if(i==1 && j==1) {
-        output <- simulation(equal_hypothesis, N[j], prob[i,])
+        output <- ppv_simulation(equal_hypothesis, N[j], prob[i,])
       } else {
-        output <- rbind(output, simulation(equal_hypothesis, N[j], prob[i,]))
+        output <- rbind(output, ppv_simulation(equal_hypothesis, N[j], prob[i,]))
       }
     }
   }
@@ -310,3 +494,68 @@ wrap_simulation <- function(case=c("nominal","power"), equal_hypothesis, N, prob
   return(result)
 }
 
+
+
+npv_simulation <- function(N, prob, n_data=10000, seed=881128) {
+  p1 <- as.numeric(prob[grep("p1", colnames(prob))])
+  p0 <- as.numeric(prob[grep("p0", colnames(prob))])
+  ## p1,p0 generate
+  simul_data <- simul_data_generate(n_data, N, p1, p0, seed, IsPPV=FALSE)
+  
+  npv1 <- simul_data[[1]][1]
+  npv2 <- simul_data[[1]][2]
+  xi1 <- simul_data[[1]][3]
+  xi2 <- simul_data[[1]][4]
+  eta1 <- simul_data[[1]][5]
+  eta2 <- simul_data[[1]][6]
+  test1 <- round(prob$npv1,4) == npv1; test2 <- round(prob$npv2,4) == npv2; test3 <- round(prob$xi1, 4) == xi1; test4 <- round(prob$xi2,4) == xi2; test5 <- round(prob$eta1,4) == eta1; test6 <- round(prob$eta2,4) == eta2
+  
+  if(!all(c(test1,test2,test3,test4,test5,test6))) stop("error!")
+  
+  test_pval <- rep(0,n_data)
+  for(i in 1:n_data) test_pval[i] <- npv_test(simul_data[[2]][,i])$p.value
+  
+  
+  result_prob <- sum(test_pval<0.05, na.rm=T)/n_data
+  
+  final <- data.frame(N)
+  prob_mat <- c(p1, p0)
+  prob_mat<-data.frame(t(prob_mat))
+  colnames(prob_mat) <- c(paste("p1", 1:9, sep=""),paste("p0", 1:9, sep=""))
+  
+  result_mat <- data.frame(t(c(npv1, npv2, abs(npv1-npv2), prob$pi, prob$xi1,prob$xi2, prob$eta1, prob$eta2, result_prob)))
+  
+  colnames(result_mat)[1:8] <- c("NPV1","NPV2", "d0", "PI", "XI1", "XI2", "ETA1","ETA2")
+  if(npv1==npv2) colnames(result_mat)[9] <- "nominal"
+  if(npv1!=npv2) colnames(result_mat)[9] <- "power"
+  
+  result <- cbind(final,prob_mat, result_mat)
+  rownames(result) <- 1
+  return(result)
+}
+wrap_npv_simulation <- function(case=c("nominal","power"), N, prob) {
+  
+  for(i in 1:nrow(prob)){
+    for(j in 1:length(N)){
+      if(i==1 && j==1) {
+        output <- npv_simulation(N[j], prob[i,])
+      } else {
+        output <- rbind(output, npv_simulation(N[j], prob[i,]))
+      }
+    }
+  }
+  
+  ###
+  result <- prob
+  
+  for(n in 1:length(N)){
+    result_temp <- data.frame(rep(NA,nrow(result)))
+    colnames(result_temp) <- paste0("N", N[n])
+    result <- cbind(result, result_temp)
+  }
+  
+  for(i in 1:nrow(result)) {
+    result[i,26:(26+length(N)-1)] <- output[output$PI == result$pi[i] & output$NPV1 == result$npv1[i] & output$NPV2 == result$npv2[i] & output$XI1 == result$xi1[i] & output$XI2 == result$xi2[i] & output$ETA1 == result$eta1[i] & output$ETA2 == result$eta2[i],][,case]
+  }
+  return(result)
+}
